@@ -1,21 +1,22 @@
 #include <iostream>
 #include <vector>
+#include <quadmath.h> // Dodano dla __float128
 using namespace std;
 
 // Struktura przechowująca współczynniki segmentu splajnu
 struct SplineSegment {
-    double a, b, c, d; // Współczynniki: S(x) = a + b*(x-x_i) + c*(x-x_i)^2 + d*(x-x_i)^3
-    double x;         // Początek przedziału
+    __float128 a, b, c, d; // Współczynniki: S(x) = a + b*(x-x_i) + c*(x-x_i)^2 + d*(x-x_i)^3
+    __float128 x;          // Początek przedziału
 };
 
 class NaturalCubicSpline {
 private:
-    vector<double> x, y, h;
+    vector<__float128> x, y, h;
     vector<SplineSegment> segments;
 
 public:
     // Konstruktor przyjmujący wektory punktów (x, y)
-    NaturalCubicSpline(const vector<double>& x_in, const vector<double>& y_in) {
+    NaturalCubicSpline(const vector<__float128>& x_in, const vector<__float128>& y_in) {
         x = x_in;
         y = y_in;
         int n = x.size();
@@ -27,32 +28,32 @@ public:
         }
         
         // Algorytm de Boor’a dla splajnów naturalnych (warunki brzegowe: c[0] = c[n-1] = 0)
-        vector<double> alpha(n, 0.0), l(n, 0.0), mu(n, 0.0), z(n, 0.0);
+        vector<__float128> alpha(n, 0.0Q), l(n, 0.0Q), mu(n, 0.0Q), z(n, 0.0Q);
         // Warunki początkowe
-        l[0] = 1.0;
-        mu[0] = 0.0;
-        z[0] = 0.0;
+        l[0] = 1.0Q;
+        mu[0] = 0.0Q;
+        z[0] = 0.0Q;
         
         // Tworzenie układu równań dla c[1] ... c[n-2]
         for (int i = 1; i < n - 1; i++) {
-            alpha[i] = 3.0 * ((y[i + 1] - y[i]) / h[i] - (y[i] - y[i - 1]) / h[i - 1]);
-            l[i] = 2.0 * (x[i + 1] - x[i - 1]) - h[i - 1] * mu[i - 1];
+            alpha[i] = 3.0Q * ((y[i + 1] - y[i]) / h[i] - (y[i] - y[i - 1]) / h[i - 1]);
+            l[i] = 2.0Q * (x[i + 1] - x[i - 1]) - h[i - 1] * mu[i - 1];
             mu[i] = h[i] / l[i];
             z[i] = (alpha[i] - h[i - 1] * z[i - 1]) / l[i];
         }
         // Warunek na końcu
-        l[n - 1] = 1.0;
-        z[n - 1] = 0.0;
+        l[n - 1] = 1.0Q;
+        z[n - 1] = 0.0Q;
         
         // Wektory współczynników b i d
-        vector<double> c(n, 0.0), b(n - 1, 0.0), d(n - 1, 0.0);
-        c[n - 1] = 0.0;
+        vector<__float128> c(n, 0.0Q), b(n - 1, 0.0Q), d(n - 1, 0.0Q);
+        c[n - 1] = 0.0Q;
         
         // Rozwiązywanie układu wstecz (algorytm Thomasa)
         for (int j = n - 2; j >= 0; j--) {
             c[j] = z[j] - mu[j] * c[j + 1];
-            b[j] = (y[j + 1] - y[j]) / h[j] - h[j] * (c[j + 1] + 2.0 * c[j]) / 3.0;
-            d[j] = (c[j + 1] - c[j]) / (3.0 * h[j]);
+            b[j] = (y[j + 1] - y[j]) / h[j] - h[j] * (c[j + 1] + 2.0Q * c[j]) / 3.0Q;
+            d[j] = (c[j + 1] - c[j]) / (3.0Q * h[j]);
         }
         
         // Utworzenie segmentów splajnu
@@ -67,7 +68,7 @@ public:
     }
     
     // Funkcja obliczająca wartość splajnu dla zadanego x
-    double evaluate(double xi) {
+    __float128 evaluate(__float128 xi) {
         int n = segments.size();
         int seg = 0;
         // Wyszukanie odpowiedniego segmentu (prosty sposób)
@@ -83,7 +84,7 @@ public:
                 }
             }
         }
-        double dx = xi - segments[seg].x;
+        __float128 dx = xi - segments[seg].x;
         return segments[seg].a + segments[seg].b * dx +
                segments[seg].c * dx * dx +
                segments[seg].d * dx * dx * dx;
@@ -95,25 +96,32 @@ int main() {
     cout << "Podaj liczbe wezlow: ";
     cin >> n;
 
-    vector<double> x(n), y(n);
+    vector<__float128> x(n), y(n);
     for (int i = 0; i < n; i++) {
-        cout << "Podaj punkty x[",i,"]:";
-        cin >> x[i];
+        cout << "Podaj punkty x[" << i << "]: ";
+        double temp;
+        cin >> temp;
+        x[i] = temp;
     }
 
     for (int i = 0; i < n; i++) {
-        cout << "Podaj punkty x[",y,"]:";
-        cin >> y[i];
+        cout << "Podaj punkty y[" << i << "]: ";
+        double temp;
+        cin >> temp;
+        y[i] = temp;
     }
     
     // Tworzenie obiektu NaturalCubicSpline
     NaturalCubicSpline spline(x, y);
     
     // Test: obliczanie wartości splajnu w przedziale
-    for (double xi = x[0]; xi <= x[n - 1]; xi += 0.1) {
-        cout << "x = " << xi << ", S(x) = " << spline.evaluate(xi) << endl;
+    for (__float128 xi = x[0]; xi <= x[n - 1]; xi += 0.1Q) {
+        char buffer[128];
+        quadmath_snprintf(buffer, sizeof(buffer), "%.15Qf", spline.evaluate(xi));
+        char xi_buffer[128];
+        quadmath_snprintf(xi_buffer, sizeof(xi_buffer), "%.15Qf", xi);
+        cout << "x = " << xi_buffer << ", S(x) = " << buffer << endl;
     }
     
     return 0;
 }
-// Kompilacja: g++ -o spline main.cpp -std=c++11
