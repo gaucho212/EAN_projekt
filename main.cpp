@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <quadmath.h> // Dodano dla __float128
+#include <tuple> // Dodano dla std::tuple
 using namespace std;
 
 // Struktura przechowująca współczynniki segmentu splajnu
@@ -67,8 +68,8 @@ public:
         }
     }
     
-    // Funkcja obliczająca wartość splajnu dla zadanego x
-    __float128 evaluate(__float128 xi) {
+    // Funkcja obliczająca wartość splajnu dla zadanego x i zwracająca współczynniki
+    std::tuple<__float128, __float128, __float128, __float128, __float128> evaluate(__float128 xi) {
         int n = segments.size();
         int seg = 0;
         // Wyszukanie odpowiedniego segmentu (prosty sposób)
@@ -85,43 +86,67 @@ public:
             }
         }
         __float128 dx = xi - segments[seg].x;
-        return segments[seg].a + segments[seg].b * dx +
-               segments[seg].c * dx * dx +
-               segments[seg].d * dx * dx * dx;
+        __float128 value = segments[seg].a + segments[seg].b * dx +
+                           segments[seg].c * dx * dx +
+                           segments[seg].d * dx * dx * dx;
+        return {value, segments[seg].a, segments[seg].b, segments[seg].c, segments[seg].d};
     }
 };
 
+#include <fstream>
+#include <sstream>
+
 int main() {
+    ifstream inputFile("input.txt");
+    ofstream outputFile("output.txt");
+
+    if (!inputFile.is_open() || !outputFile.is_open()) {
+        cerr << "Blad otwarcia pliku!" << endl;
+        return 1;
+    }
+
+    int tryb;
+    inputFile >> tryb; 
+
     int n;
-    cout << "Podaj liczbe wezlow: ";
-    cin >> n;
+    inputFile >> n; // Liczba węzłów
 
     vector<__float128> x(n), y(n);
     for (int i = 0; i < n; i++) {
-        cout << "Podaj punkty x[" << i << "]: ";
         double temp;
-        cin >> temp;
+        inputFile >> temp;
         x[i] = temp;
     }
 
     for (int i = 0; i < n; i++) {
-        cout << "Podaj punkty y[" << i << "]: ";
         double temp;
-        cin >> temp;
+        inputFile >> temp;
         y[i] = temp;
     }
-    
-    // Tworzenie obiektu NaturalCubicSpline
-    NaturalCubicSpline spline(x, y);
-    
-    // Test: obliczanie wartości splajnu w przedziale
-    for (__float128 xi = x[0]; xi <= x[n - 1]; xi += 0.1Q) {
-        char buffer[128];
-        quadmath_snprintf(buffer, sizeof(buffer), "%.15Qf", spline.evaluate(xi));
-        char xi_buffer[128];
-        quadmath_snprintf(xi_buffer, sizeof(xi_buffer), "%.15Qf", xi);
-        cout << "x = " << xi_buffer << ", S(x) = " << buffer << endl;
+    if(tryb==1){
+        // Tworzenie obiektu NaturalCubicSpline
+        NaturalCubicSpline spline(x, y);
+
+        // Test: obliczanie wartości splajnu w przedziale
+        for (__float128 xi = x[0]; xi <= x[n - 1]; xi += 0.1Q) {
+            char buffer[128];
+            char a_buffer[128], b_buffer[128], c_buffer[128], d_buffer[128];
+            auto [value, a, b, c, d] = spline.evaluate(xi);
+            quadmath_snprintf(buffer, sizeof(buffer), "%.15Qf", value);
+            quadmath_snprintf(a_buffer, sizeof(a_buffer), "%.15Qf", a);
+            quadmath_snprintf(b_buffer, sizeof(b_buffer), "%.15Qf", b);
+            quadmath_snprintf(c_buffer, sizeof(c_buffer), "%.15Qf", c);
+            quadmath_snprintf(d_buffer, sizeof(d_buffer), "%.15Qf", d);
+            char xi_buffer[128];
+            quadmath_snprintf(xi_buffer, sizeof(xi_buffer), "%.15Qf", xi);
+            outputFile << "x = " << xi_buffer << ", S(x) = " << buffer
+                       << ", a = " << a_buffer << ", b = " << b_buffer
+                       << ", c = " << c_buffer << ", d = " << d_buffer << endl;
+        }
     }
-    
+    inputFile.close();
+    outputFile.close();
+
     return 0;
 }
+//g++ -o main main.cpp -lquadmath
