@@ -128,7 +128,7 @@ int main() {
         NaturalCubicSpline spline(x, y);
 
         // Test: obliczanie wartości splajnu w przedziale
-        for (__float128 xi = x[0]; xi <= x[n - 1]; xi += 0.1Q) {
+        for (__float128 xi = x[0]; xi <= x[n - 1]; xi+=0.1Q) {
             char buffer[128];
             char a_buffer[128], b_buffer[128], c_buffer[128], d_buffer[128];
             auto [value, a, b, c, d] = spline.evaluate(xi);
@@ -141,7 +141,7 @@ int main() {
             quadmath_snprintf(xi_buffer, sizeof(xi_buffer), "%.15Qf", xi);
             outputFile << "x = " << xi_buffer << ", S(x) = " << buffer
                        << ", a = " << a_buffer << ", b = " << b_buffer
-                       << ", c = " << c_buffer << ", d = " << d_buffer << endl;
+                       << ", c = " << c_buffer << ", d = " << d_buffer <<"\n"<< endl;
         }
     }
     inputFile.close();
