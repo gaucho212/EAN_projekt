@@ -25,11 +25,24 @@ def calculate():
     x_values = x_str.split()
     y_values = y_str.split()
 
-    # Sprawdź, czy liczba wartości zgadza się z liczbą węzłów
-    if len(x_values) != nodes or len(y_values) != nodes:
-        tk.messagebox.showerror(
-            "Błąd", "Liczba wartości x i y musi zgadzać się z liczbą węzłów."
-        )
+    # Sprawdź, czy liczba wartości zgadza się z oczekiwaniami w danym trybie
+    if mode == 1:
+        # Tryb 1: arytmetyka zmiennoprzecinkowa, pojedyncze wartości
+        if len(x_values) != nodes or len(y_values) != nodes:
+            tk.messagebox.showerror(
+                "Błąd", "W trybie 1 liczba wartości x i y musi zgadzać się z liczbą węzłów."
+            )
+            return
+    elif mode == 2:
+        # Tryb 2: arytmetyka przedziałowa, pary wartości (dolna i górna granica)
+        if len(x_values) != 2 * nodes or len(y_values) != 2 * nodes:
+            tk.messagebox.showerror(
+                "Błąd", "W trybie 2 należy podać po dwie wartości (dolna i górna granica) dla każdego x i y."
+            )
+            return
+    else:
+        # Tryb 3 lub inne nieobsługiwane tryby
+        tk.messagebox.showerror("Błąd", "Wybrano nieobsługiwany tryb.")
         return
 
     # Konwertuj wartości na liczby zmiennoprzecinkowe
@@ -37,7 +50,7 @@ def calculate():
         x_floats = [float(x) for x in x_values]
         y_floats = [float(y) for y in y_values]
     except ValueError:
-        tk.messagebox.showerror("Błąd", "Wartości x i y muszą być liczbami.")
+        tk.messagebox.showerror("Błąd", "Wszystkie wartości muszą być liczbami.")
         return
 
     # Zapisz dane do pliku input.txt
@@ -85,7 +98,7 @@ mode_label.pack(pady=5)
 mode_var = tk.IntVar(value=1)  # Domyślnie tryb 1
 tk.Radiobutton(
     mode_frame,
-    text="Tryb 1",
+    text="Tryb 1 (zmiennoprzecinkowy)",
     variable=mode_var,
     value=1,
     bg="#e0e0e0",
@@ -93,17 +106,9 @@ tk.Radiobutton(
 ).pack(anchor="w", padx=10)
 tk.Radiobutton(
     mode_frame,
-    text="Tryb 2",
+    text="Tryb 2 (przedziałowy)",
     variable=mode_var,
     value=2,
-    bg="#e0e0e0",
-    font=("Arial", 10),
-).pack(anchor="w", padx=10)
-tk.Radiobutton(
-    mode_frame,
-    text="Tryb 3",
-    variable=mode_var,
-    value=3,
     bg="#e0e0e0",
     font=("Arial", 10),
 ).pack(anchor="w", padx=10)
