@@ -9,6 +9,7 @@ def calculate():
     nodes_str = nodes_entry.get()
     x_str = x_entry.get()
     y_str = y_entry.get()
+    xx_str = xx_entry.get()  # Pobierz wartość xx z nowego pola
 
     # Sprawdź, czy liczba węzłów jest poprawna
     try:
@@ -30,14 +31,16 @@ def calculate():
         # Tryb 1: arytmetyka zmiennoprzecinkowa, pojedyncze wartości
         if len(x_values) != nodes or len(y_values) != nodes:
             tk.messagebox.showerror(
-                "Błąd", "W trybie 1 liczba wartości x i y musi zgadzać się z liczbą węzłów."
+                "Błąd",
+                "W trybie 1 liczba wartości x i y musi zgadzać się z liczbą węzłów.",
             )
             return
     elif mode == 2:
         # Tryb 2: arytmetyka przedziałowa, pary wartości (dolna i górna granica)
         if len(x_values) != 2 * nodes or len(y_values) != 2 * nodes:
             tk.messagebox.showerror(
-                "Błąd", "W trybie 2 należy podać po dwie wartości (dolna i górna granica) dla każdego x i y."
+                "Błąd",
+                "W trybie 2 należy podać po dwie wartości (dolna i górna granica) dla każdego x i y.",
             )
             return
     else:
@@ -49,6 +52,7 @@ def calculate():
     try:
         x_floats = [float(x) for x in x_values]
         y_floats = [float(y) for y in y_values]
+        xx = float(xx_str)  # Konwertuj xx na liczbę zmiennoprzecinkową
     except ValueError:
         tk.messagebox.showerror("Błąd", "Wszystkie wartości muszą być liczbami.")
         return
@@ -59,6 +63,7 @@ def calculate():
         f.write(str(nodes) + "\n")
         f.write(" ".join(map(str, x_floats)) + "\n")
         f.write(" ".join(map(str, y_floats)) + "\n")
+        f.write(str(xx) + "\n")  # Zapisz xx jako ostatnią linię
 
     # Uruchom program C++
     try:
@@ -77,6 +82,40 @@ def calculate():
         tk.messagebox.showerror("Błąd", "Nie znaleziono pliku wyjściowego.")
     except Exception as e:
         tk.messagebox.showerror("Błąd", str(e))
+
+
+def show_info():
+    # Tworzenie nowego okna informacyjnego
+    info_window = tk.Toplevel(root)
+    info_window.title("Informacje o aplikacji")
+    info_window.geometry("600x400")
+    info_window.configure(bg="#f0f0f0")
+
+    # Pole tekstowe z informacjami
+    info_text = tk.scrolledtext.ScrolledText(
+        info_window, width=70, height=20, font=("Arial", 10), bg="#ffffff"
+    )
+    info_text.pack(padx=10, pady=10, fill="both", expand=True)
+
+    # Treść informacji
+    info_content = """
+    Aplikacja oblicza wartości i współczynniki naturalnej funkcji splajnu stopnia trzeciego.
+
+    Instrukcje dotyczące wpisywania danych:
+
+    - Tryb 1 (zmiennoprzecinkowy):
+      W polu "Wartości x" wpisz wartości x oddzielone spacjami. Liczba wartości musi odpowiadać liczbie węzłów.
+      W polu "Wartości y" wpisz wartości y oddzielone spacjami. Liczba wartości musi odpowiadać liczbie węzłów.
+      W polu "Punkt xx" wpisz pojedynczą wartość liczbową.
+
+    - Tryb 2 (przedziałowy):
+      W polu "Wartości x" wpisz pary wartości (dolna i górna granica) dla każdego x, oddzielone spacjami.
+      W polu "Wartości y" wpisz pary wartości (dolna i górna granica) dla każdego y, oddzielone spacjami.
+      Liczba wartości musi być dwukrotnością liczby węzłów.
+      W polu "Punkt xx" wpisz pojedynczą wartość liczbową (dla uproszczenia).
+    """
+    info_text.insert(tk.END, info_content)
+    info_text.config(state=tk.DISABLED)  # Zablokuj edycję tekstu
 
 
 # Utwórz główne okno
@@ -135,6 +174,12 @@ y_label.grid(row=2, column=0, padx=5, pady=5, sticky="w")
 y_entry = tk.Entry(input_frame, width=50, font=("Arial", 10))
 y_entry.grid(row=2, column=1, padx=5, pady=5)
 
+# Nowe pole dla xx
+xx_label = tk.Label(input_frame, text="Punkt xx:", **label_style)
+xx_label.grid(row=3, column=0, padx=5, pady=5, sticky="w")
+xx_entry = tk.Entry(input_frame, width=10, font=("Arial", 10))
+xx_entry.grid(row=3, column=1, padx=5, pady=5)
+
 # Przycisk obliczeń
 calculate_button = tk.Button(
     root,
@@ -146,6 +191,18 @@ calculate_button = tk.Button(
     relief="raised",
 )
 calculate_button.pack(pady=10)
+
+# Przycisk informacyjny
+info_button = tk.Button(
+    root,
+    text="Informacje",
+    command=show_info,
+    font=("Arial", 12, "bold"),
+    bg="#2196F3",
+    fg="white",
+    relief="raised",
+)
+info_button.pack(pady=10)
 
 # Ramka dla wyniku
 result_frame = tk.Frame(root, bg="#e0e0e0", bd=2, relief="groove")
