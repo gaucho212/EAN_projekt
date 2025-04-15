@@ -1,225 +1,215 @@
 import tkinter as tk
-from tkinter import messagebox, scrolledtext
+from tkinter import ttk, messagebox, scrolledtext
 import subprocess
 
+# Stylizacja kolorów
+BG_COLOR = "#f5f6fa"
+ACCENT_COLOR = "#487eb0"
+BUTTON_COLOR = "#40739e"
+TEXT_COLOR = "#2f3640"
+FONT_NAME = "Segoe UI"
 
 def calculate():
-    # Pobierz wartości z interfejsu
     mode = mode_var.get()
     nodes_str = nodes_entry.get()
     x_str = x_entry.get()
     y_str = y_entry.get()
-    xx_str = xx_entry.get()  # Pobierz wartość xx z nowego pola
+    xx_str = xx_entry.get()
 
-    # Sprawdź, czy liczba węzłów jest poprawna
     try:
         nodes = int(nodes_str)
         if nodes <= 0:
             raise ValueError
     except ValueError:
-        tk.messagebox.showerror(
-            "Błąd", "Liczba węzłów musi być dodatnią liczbą całkowitą."
-        )
+        messagebox.showerror("Błąd", "Liczba węzłów musi być dodatnią liczbą całkowitą.")
         return
 
-    # Podziel wartości x i y na listy
     x_values = x_str.split()
     y_values = y_str.split()
+    xx_values = xx_str.split()
 
-    # Sprawdź, czy liczba wartości zgadza się z oczekiwaniami w danym trybie
+    # Walidacja liczby wartości
     if mode == 1:
-        # Tryb 1: arytmetyka zmiennoprzecinkowa, pojedyncze wartości
-        if len(x_values) != nodes or len(y_values) != nodes:
-            tk.messagebox.showerror(
-                "Błąd",
-                "W trybie 1 liczba wartości x i y musi zgadzać się z liczbą węzłów.",
-            )
+        required = nodes
+        if len(x_values) != required or len(y_values) != required:
+            messagebox.showerror("Błąd", f"W trybie 1 wymagane {required} wartości x i y")
             return
     elif mode == 2:
-        # Tryb 2: arytmetyka przedziałowa, pary wartości (dolna i górna granica)
-        if len(x_values) != 2 * nodes or len(y_values) != 2 * nodes:
-            tk.messagebox.showerror(
-                "Błąd",
-                "W trybie 2 należy podać po dwie wartości (dolna i górna granica) dla każdego x i y.",
-            )
+        required = 2 * nodes
+        if len(x_values) != required or len(y_values) != required:
+            messagebox.showerror("Błąd", f"W trybie 2 wymagane {required} wartości x i y")
+            return
+    elif mode == 3:
+        required = 4 * nodes
+        if len(x_values) != required or len(y_values) != required:
+            messagebox.showerror("Błąd", f"W trybie 3 wymagane {required} wartości x i y")
             return
     else:
-        # Tryb 3 lub inne nieobsługiwane tryby
-        tk.messagebox.showerror("Błąd", "Wybrano nieobsługiwany tryb.")
+        messagebox.showerror("Błąd", "Nieobsługiwany tryb")
         return
 
-    # Konwertuj wartości na liczby zmiennoprzecinkowe
+    # Walidacja wartości xx
     try:
-        x_floats = [float(x) for x in x_values]
-        y_floats = [float(y) for y in y_values]
         if mode == 1:
-            xx = float(xx_str)
-        if mode == 2:
-            xx = list(map(float, xx_str.split()))# Konwertuj xx na liczbę zmiennoprzecinkową
+            if len(xx_values) != 1: raise ValueError
+            xx = [float(xx_values[0])]
+        elif mode == 2:
+            if len(xx_values) != 2: raise ValueError
+            xx = list(map(float, xx_values))
+        elif mode == 3:
+            if len(xx_values) != 4: raise ValueError
+            xx = list(map(float, xx_values))
     except ValueError:
-        tk.messagebox.showerror("Błąd", "Wszystkie wartości muszą być liczbami.")
+        messagebox.showerror("Błąd", "Nieprawidłowy format punktu xx dla wybranego trybu")
         return
 
-    # Zapisz dane do pliku input.txt
+    # Zapisz dane do pliku
     with open("input.txt", "w") as f:
-        f.write(str(mode) + "\n")
-        f.write(str(nodes) + "\n")
-        f.write(" ".join(map(str, x_floats)) + "\n")
-        f.write(" ".join(map(str, y_floats)) + "\n")
-        if mode == 1:
-            f.write(str(xx) + "\n") # Zapisz xx jako ostatnią linię
-        elif mode == 2:
-            f.write(" ".join(map(str, xx)) + "\n")
+        f.write(f"{mode}\n{nodes}\n")
+        f.write(" ".join(x_values) + "\n")
+        f.write(" ".join(y_values) + "\n")
+        f.write(" ".join(map(str, xx)) + "\n")
 
-    # Uruchom program C++
+    # Uruchom obliczenia
     try:
         subprocess.run(["./main"], check=True)
-    except subprocess.CalledProcessError:
-        tk.messagebox.showerror("Błąd", "Obliczenia nie powiodły się.")
+    except Exception as e:
+        messagebox.showerror("Błąd", f"Błąd obliczeń: {str(e)}")
         return
 
-    # Odczytaj wynik z pliku output.txt
+    # Wyświetl wyniki
     try:
         with open("output.txt", "r") as f:
-            result = f.read().strip()
-        result_text.delete(1.0, tk.END)  # Wyczyść poprzedni wynik
-        result_text.insert(tk.END, "Wynik:\n" + result)
-    except FileNotFoundError:
-        tk.messagebox.showerror("Błąd", "Nie znaleziono pliku wyjściowego.")
+            result = f.read()
+        result_text.delete(1.0, tk.END)
+        result_text.insert(tk.END, "Wyniki:\n" + result)
     except Exception as e:
-        tk.messagebox.showerror("Błąd", str(e))
-
+        messagebox.showerror("Błąd", f"Błąd odczytu wyników: {str(e)}")
 
 def show_info():
-    # Tworzenie nowego okna informacyjnego
-    info_window = tk.Toplevel(root)
-    info_window.title("Informacje o aplikacji")
-    info_window.geometry("600x400")
-    info_window.configure(bg="#f0f0f0")
+    info = """
+    FORMAT DANYCH WEJŚCIOWYCH:
 
-    # Pole tekstowe z informacjami
-    info_text = tk.scrolledtext.ScrolledText(
-        info_window, width=70, height=20, font=("Arial", 10), bg="#ffffff"
-    )
-    info_text.pack(padx=10, pady=10, fill="both", expand=True)
+    Tryb 1 (Zwykły):
+    - x: pojedyncze wartości (np. 1 2 3)
+    - y: pojedyncze wartości (np. 2 3 5)
+    - xx: pojedyncza wartość (np. 2.5)
 
-    # Treść informacji
-    info_content = """
-    Aplikacja oblicza wartości i współczynniki naturalnej funkcji splajnu stopnia trzeciego.
+    Tryb 2 (Przedziały pojedyncze):
+    - x: pary przedziałów (np. 1.9 2.1 2.9 3.1)
+    - y: pary przedziałów (np. 1.9 2.1 2.9 3.1)
+    - xx: para przedziałów (np. 2.4 2.6)
 
-    Instrukcje dotyczące wpisywania danych:
-
-    - Tryb 1 (zmiennoprzecinkowy):
-      W polu "Wartości x" wpisz wartości x oddzielone spacjami. Liczba wartości musi odpowiadać liczbie węzłów.
-      W polu "Wartości y" wpisz wartości y oddzielone spacjami. Liczba wartości musi odpowiadać liczbie węzłów.
-      W polu "Punkt xx" wpisz pojedynczą wartość liczbową.
-
-    - Tryb 2 (przedziałowy):
-      W polu "Wartości x" wpisz pary wartości (dolna i górna granica) dla każdego x, oddzielone spacjami.
-      W polu "Wartości y" wpisz pary wartości (dolna i górna granica) dla każdego y, oddzielone spacjami.
-      Liczba wartości musi być dwukrotnością liczby węzłów.
-      W polu "Punkt xx" wpisz pojedynczą wartość liczbową (dla uproszczenia).
+    Tryb 3 (Podwójne przedziały):
+    - x: czwórki wartości [[lo1, hi1], [lo2, hi2]] (np. 1.8 2.0 2.2 2.4 2.8 3.0 3.2 3.4)
+    - y: czwórki wartości [[lo1, hi1], [lo2, hi2]] 
+    - xx: czwórka wartości (np. 2.3 2.4 2.6 2.7)
     """
-    info_text.insert(tk.END, info_content)
-    info_text.config(state=tk.DISABLED)  # Zablokuj edycję tekstu
+    messagebox.showinfo("Instrukcja", info)
 
-
-# Utwórz główne okno
+# Główne okno
 root = tk.Tk()
-root.title("Aplikacja Obliczeniowa")
-root.geometry("800x600")  # Ustaw rozmiar okna
-root.configure(bg="#f0f0f0")  # Jasne tło
+root.title("Spline Calculator - Interpolacja przedziałowa")
+root.geometry("900x750")
+root.configure(bg=BG_COLOR)
 
-# Styl dla etykiet
-label_style = {"font": ("Arial", 12, "bold"), "bg": "#f0f0f0"}
+# Styl dla widgetów
+style = ttk.Style()
+style.theme_use('clam')
+style.configure('TFrame', background=BG_COLOR)
+style.configure('TLabel', background=BG_COLOR, font=(FONT_NAME, 10), foreground=TEXT_COLOR)
+style.configure('TButton', font=(FONT_NAME, 10, 'bold'), borderwidth=1)
+style.map('TButton', 
+          foreground=[('active', BG_COLOR), ('!active', BG_COLOR)],
+          background=[('active', BUTTON_COLOR), ('!active', ACCENT_COLOR)])
 
-# Ramka dla wyboru trybu
-mode_frame = tk.Frame(root, bg="#e0e0e0", bd=2, relief="groove")
-mode_frame.pack(pady=10, padx=10, fill="x")
+# Nagłówek
+header_frame = ttk.Frame(root)
+header_frame.pack(pady=20, fill='x')
+tk.Label(header_frame, 
+        text="SPLINE CALCULATOR", 
+        font=(FONT_NAME, 18, 'bold'), 
+        fg=ACCENT_COLOR, 
+        bg=BG_COLOR).pack()
 
-mode_label = tk.Label(mode_frame, text="Wybierz tryb:", **label_style)
-mode_label.pack(pady=5)
+# Panel trybów
+mode_frame = ttk.LabelFrame(root, text=" Tryb obliczeń ", padding=15)
+mode_frame.pack(padx=20, pady=10, fill='x')
 
-mode_var = tk.IntVar(value=1)  # Domyślnie tryb 1
-tk.Radiobutton(
-    mode_frame,
-    text="Tryb 1 (zmiennoprzecinkowy)",
-    variable=mode_var,
-    value=1,
-    bg="#e0e0e0",
-    font=("Arial", 10),
-).pack(anchor="w", padx=10)
-tk.Radiobutton(
-    mode_frame,
-    text="Tryb 2 (przedziałowy)",
-    variable=mode_var,
-    value=2,
-    bg="#e0e0e0",
-    font=("Arial", 10),
-).pack(anchor="w", padx=10)
+mode_var = tk.IntVar(value=1)
+modes = [
+    ("Tryb 1 - Standardowy", 1),
+    ("Tryb 2 - Pojedyncze przedziały", 2),
+    ("Tryb 3 - Podwójne przedziały", 3)
+]
 
-# Ramka dla danych wejściowych
-input_frame = tk.Frame(root, bg="#e0e0e0", bd=2, relief="groove")
-input_frame.pack(pady=10, padx=10, fill="x")
+for text, val in modes:
+    ttk.Radiobutton(mode_frame, 
+                   text=text, 
+                   variable=mode_var, 
+                   value=val,
+                   style='Toolbutton').pack(side='left', padx=10, pady=5)
 
-# Liczba węzłów
-nodes_label = tk.Label(input_frame, text="Liczba węzłów:", **label_style)
-nodes_label.grid(row=0, column=0, padx=5, pady=5, sticky="w")
-nodes_entry = tk.Entry(input_frame, width=10, font=("Arial", 10))
-nodes_entry.grid(row=0, column=1, padx=5, pady=5)
+# Panel danych wejściowych
+input_frame = ttk.LabelFrame(root, text=" Dane wejściowe ", padding=15)
+input_frame.pack(padx=20, pady=15, fill='x')
 
-# Wartości x
-x_label = tk.Label(input_frame, text="Wartości x (oddzielone spacjami):", **label_style)
-x_label.grid(row=1, column=0, padx=5, pady=5, sticky="w")
-x_entry = tk.Entry(input_frame, width=50, font=("Arial", 10))
-x_entry.grid(row=1, column=1, padx=5, pady=5)
+def create_input_row(frame, label, row):
+    tk.Label(frame, 
+            text=label, 
+            font=(FONT_NAME, 10, 'bold'), 
+            bg=BG_COLOR, 
+            fg=TEXT_COLOR).grid(row=row, column=0, sticky='w', padx=5, pady=8)
+    entry = ttk.Entry(frame, width=60, font=(FONT_NAME, 10))
+    entry.grid(row=row, column=1, padx=5, pady=8, sticky='ew')
+    return entry
 
-# Wartości y
-y_label = tk.Label(input_frame, text="Wartości y (oddzielone spacjami):", **label_style)
-y_label.grid(row=2, column=0, padx=5, pady=5, sticky="w")
-y_entry = tk.Entry(input_frame, width=50, font=("Arial", 10))
-y_entry.grid(row=2, column=1, padx=5, pady=5)
+nodes_entry = create_input_row(input_frame, "Liczba węzłów:", 0)
+x_entry = create_input_row(input_frame, "Wartości x:", 1)
+y_entry = create_input_row(input_frame, "Wartości y:", 2)
+xx_entry = create_input_row(input_frame, "Punkt xx:", 3)
 
-# Nowe pole dla xx
-xx_label = tk.Label(input_frame, text="Punkt xx:", **label_style)
-xx_label.grid(row=3, column=0, padx=5, pady=5, sticky="w")
-xx_entry = tk.Entry(input_frame, width=10, font=("Arial", 10))
-xx_entry.grid(row=3, column=1, padx=5, pady=5)
+# Przyciski akcji
+button_frame = ttk.Frame(root)
+button_frame.pack(pady=15)
 
-# Przycisk obliczeń
-calculate_button = tk.Button(
-    root,
-    text="Oblicz",
-    command=calculate,
-    font=("Arial", 12, "bold"),
-    bg="#4CAF50",
-    fg="white",
-    relief="raised",
+ttk.Button(button_frame, 
+          text="Oblicz", 
+          command=calculate, 
+          style='TButton').pack(side='left', padx=10)
+ttk.Button(button_frame, 
+          text="ℹ️ Instrukcja", 
+          command=show_info, 
+          style='TButton').pack(side='left', padx=10)
+
+# Panel wyników
+result_frame = ttk.LabelFrame(root, text=" Wyniki ", padding=15)
+result_frame.pack(padx=20, pady=10, fill='both', expand=True)
+
+result_text = scrolledtext.ScrolledText(
+    result_frame,
+    wrap=tk.WORD,
+    font=(FONT_NAME, 10),
+    bg='white',
+    padx=10,
+    pady=10,
+    width=80,
+    height=15
 )
-calculate_button.pack(pady=10)
+result_text.pack(fill='both', expand=True)
 
-# Przycisk informacyjny
-info_button = tk.Button(
-    root,
-    text="Informacje",
-    command=show_info,
-    font=("Arial", 12, "bold"),
-    bg="#2196F3",
-    fg="white",
-    relief="raised",
-)
-info_button.pack(pady=10)
+# Stopka
+footer_frame = ttk.Frame(root)
+footer_frame.pack(pady=10)
+tk.Label(footer_frame, 
+        text="© 2024 Spline Calculator | Wersja 3.0", 
+        font=(FONT_NAME, 8), 
+        fg='#7f8fa6', 
+        bg=BG_COLOR).pack()
 
-# Ramka dla wyniku
-result_frame = tk.Frame(root, bg="#e0e0e0", bd=2, relief="groove")
-result_frame.pack(pady=10, padx=10, fill="both", expand=True)
+# Responsywność
+for child in input_frame.winfo_children():
+    child.grid_configure(padx=10, pady=5)
+input_frame.columnconfigure(1, weight=1)
 
-result_label = tk.Label(result_frame, text="Wynik:", **label_style)
-result_label.pack(pady=5)
-result_text = tk.scrolledtext.ScrolledText(
-    result_frame, width=60, height=10, font=("Arial", 10), bg="#ffffff"
-)
-result_text.pack(padx=5, pady=5, fill="both", expand=True)
-
-# Uruchom aplikację
 root.mainloop()
