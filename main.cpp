@@ -91,14 +91,13 @@ public:
             for (int seg = 0; seg < numSegments; seg++) {
                 char buffer[128];
                 __float128 value;
-                if (coeff==0)       value = segments[seg].a0;
-                else if (coeff==1)  value = segments[seg].a1;
-                else if (coeff==2)  value = segments[seg].a2;
-                else                value = segments[seg].a3;
+                if (coeff == 0)       value = segments[seg].a0;
+                else if (coeff == 1)  value = segments[seg].a1;
+                else if (coeff == 2)  value = segments[seg].a2;
+                else                  value = segments[seg].a3;
                 quadmath_snprintf(buffer, sizeof(buffer), "%.9Qf", value);
-                outputFile << "a[" << coeff << "," << seg << "] = " << buffer << " ";
+                outputFile << "a[" << coeff << "," << seg << "] = " << buffer << "\n";
             }
-            outputFile << "\n";
         }
     }
 };
@@ -282,13 +281,12 @@ public:
         for (int coeff = 0; coeff < numCoeff; coeff++) {
             for (int seg = 0; seg < numSegments; seg++) {
                 Interval val;
-                if(coeff==0)       val = segments[seg].a0;
-                else if(coeff==1)  val = segments[seg].a1;
-                else if(coeff==2)  val = segments[seg].a2;
-                else               val = segments[seg].a3;
-                outputFile << "a[" << coeff << "," << seg << "] = " << toString(val) << " ";
+                if (coeff == 0)       val = segments[seg].a0;
+                else if (coeff == 1)  val = segments[seg].a1;
+                else if (coeff == 2)  val = segments[seg].a2;
+                else                  val = segments[seg].a3;
+                outputFile << "a[" << coeff << "," << seg << "] = " << toString(val) << "\n";
             }
-            outputFile << "\n";
         }
     }
 };
@@ -328,14 +326,15 @@ int main() {
             inputFile >> buffer;
             xx = strtoflt128(buffer, NULL);
         }
-        NaturalCubicSpline spline(x,y);
+        NaturalCubicSpline spline(x, y);
         spline.printCoefficients(outputFile);
+        outputFile << "\n";
         char buffer[128];
         auto [value, a, b, c, d] = spline.evaluate(xx);
         quadmath_snprintf(buffer, sizeof(buffer), "%.15Qf", value);
         char xxBuffer[128];
         quadmath_snprintf(xxBuffer, sizeof(xxBuffer), "%.15Qf", xx);
-        outputFile << "S(" << xxBuffer << ") = " << buffer << "\n";
+        outputFile << "S(" << xxBuffer << ") = " << buffer << "\n\n";
     } else if (tryb == 2) {
         // Tryb przedziałowy – dla każdego n wczytujemy dwie wartości: dolną i górną granicę
         vector<Interval> x(n), y(n);
@@ -358,10 +357,11 @@ int main() {
             xx.lo = strtoflt128(bufLo, NULL);
             xx.hi = strtoflt128(bufHi, NULL);
         }
-        NaturalCubicSplineInterval spline(x,y);
+        NaturalCubicSplineInterval spline(x, y);
         spline.printCoefficients(outputFile);
+        outputFile << "\n";
         auto [value, a, b, c, d] = spline.evaluate(xx);
-        outputFile << "S(" << toString(xx) << ") = " << toString(value) << "\n";
+        outputFile << "S(" << toString(xx) << ") = " << toString(value) << "\n\n";
     }
     
     inputFile.close();

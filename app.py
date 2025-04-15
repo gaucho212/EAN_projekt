@@ -52,7 +52,10 @@ def calculate():
     try:
         x_floats = [float(x) for x in x_values]
         y_floats = [float(y) for y in y_values]
-        xx = float(xx_str)  # Konwertuj xx na liczbę zmiennoprzecinkową
+        if mode == 1:
+            xx = float(xx_str)
+        if mode == 2:
+            xx = list(map(float, xx_str.split()))# Konwertuj xx na liczbę zmiennoprzecinkową
     except ValueError:
         tk.messagebox.showerror("Błąd", "Wszystkie wartości muszą być liczbami.")
         return
@@ -63,7 +66,10 @@ def calculate():
         f.write(str(nodes) + "\n")
         f.write(" ".join(map(str, x_floats)) + "\n")
         f.write(" ".join(map(str, y_floats)) + "\n")
-        f.write(str(xx) + "\n")  # Zapisz xx jako ostatnią linię
+        if mode == 1:
+            f.write(str(xx) + "\n") # Zapisz xx jako ostatnią linię
+        elif mode == 2:
+            f.write(" ".join(map(str, xx)) + "\n")
 
     # Uruchom program C++
     try:
