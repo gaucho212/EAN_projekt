@@ -5,6 +5,8 @@
 #include <fstream>
 #include <sstream>
 #include <cstdlib>
+#include <limits>
+#include <cmath>
 using namespace std;
 
 // ====================
@@ -95,7 +97,7 @@ public:
                 else if (coeff == 1)  value = segments[seg].a1;
                 else if (coeff == 2)  value = segments[seg].a2;
                 else                  value = segments[seg].a3;
-                quadmath_snprintf(buffer, sizeof(buffer), "%.9Qf", value);
+                quadmath_snprintf(buffer, sizeof(buffer), "%.15Qf", value);
                 outputFile << "a[" << coeff << "," << seg << "] = " << buffer << "\n";
             }
         }
@@ -176,8 +178,8 @@ Interval cube(const Interval &a) {
 // Funkcja pomocnicza do wypisywania przedziału jako string "[lo, hi]"
 string toString(const Interval &a) {
     char bufLo[128], bufHi[128];
-    quadmath_snprintf(bufLo, sizeof(bufLo), "%.9Qf", a.lo);
-    quadmath_snprintf(bufHi, sizeof(bufHi), "%.9Qf", a.hi);
+    quadmath_snprintf(bufLo, sizeof(bufLo), "%.15Qf", a.lo);
+    quadmath_snprintf(bufHi, sizeof(bufHi), "%.15Qf", a.hi);
     string s = "[";
     s += bufLo; s += ", "; s += bufHi; s += "]";
     return s;
@@ -335,7 +337,7 @@ int main() {
         char xxBuffer[128];
         quadmath_snprintf(xxBuffer, sizeof(xxBuffer), "%.15Qf", xx);
         outputFile << "S(" << xxBuffer << ") = " << buffer << "\n\n";
-    } else if (tryb == 2) {
+    } else if (tryb == 3) {
         // Tryb przedziałowy – dla każdego n wczytujemy dwie wartości: dolną i górną granicę
         vector<Interval> x(n), y(n);
         for (int i = 0; i < n; i++) {
@@ -357,6 +359,37 @@ int main() {
             xx.lo = strtoflt128(bufLo, NULL);
             xx.hi = strtoflt128(bufHi, NULL);
         }
+        NaturalCubicSplineInterval spline(x, y);
+        spline.printCoefficients(outputFile);
+        outputFile << "\n";
+        auto [value, a, b, c, d] = spline.evaluate(xx);
+        outputFile << "S(" << toString(xx) << ") = " << toString(value) << "\n\n";
+    }
+    else if (tryb == 2) {
+        // Tryb przedziałowy – dane rzeczywiste konwersja na przedział do najbliższej liczby maszynowej 
+        vector<Interval> x(n), y(n);
+        for (int i = 0; i < n; i++) {
+            char buf[128];
+            inputFile >> buf;
+            x[i].lo = nextafterq(strtoflt128(buf, NULL),-FLT128_MAX);
+            x[i].hi = nextafterq(strtoflt128(buf, NULL),FLT128_MAX);
+        }
+        for (int i = 0; i < n; i++) {
+            char buf[128];
+            inputFile >> buf;
+            y[i].lo = nextafterq(strtoflt128(buf, NULL),-FLT128_MAX);
+            y[i].hi = nextafterq(strtoflt128(buf, NULL),FLT128_MAX);
+        }
+        Interval xx;
+        {
+            char buf[128];
+            inputFile >> buf;
+            xx.lo = strtoflt128(buf, NULL);
+            xx.hi = strtoflt128(buf, NULL);
+        }
+        xx.hi  = nextafterq(xx.lo, FLT128_MAX);   // górna granica przedziału
+        xx.lo = nextafterq(xx.lo, -FLT128_MAX);   // dolna granica przedziału
+        
         NaturalCubicSplineInterval spline(x, y);
         spline.printCoefficients(outputFile);
         outputFile << "\n";
