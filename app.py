@@ -76,7 +76,7 @@ def calculate():
 
     # Uruchom obliczenia
     try:
-        subprocess.run(["./main1"], check=True)
+        subprocess.run(["./main"], check=True)
     except Exception as e:
         messagebox.showerror("Błąd", f"Błąd obliczeń: {str(e)}")
         return
