@@ -7,7 +7,53 @@
 #include <cstdlib>
 #include <limits>
 #include <cmath>
+#include <cfenv> // dla kontroli zaokrąglania
+#include <boost/numeric/interval.hpp> 
+#include <mpfr.h>
+#include <fenv.h> // For fesetround
 using namespace std;
+
+struct Interval {
+    __float128 lo, hi;
+};
+
+// Funkcja do wczytania przedziału z pojedynczego ciągu znaków
+Interval IntRead(const string& sa) {
+    mpfr_t rop;
+    mpfr_init2(rop, 113); // 113 bitów precyzji dla __float128
+    mpfr_set_str(rop, sa.c_str(), 10, MPFR_RNDD);
+    __float128 le = mpfr_get_ld(rop, MPFR_RNDD);
+    mpfr_set_str(rop, sa.c_str(), 10, MPFR_RNDU);
+    __float128 re = mpfr_get_ld(rop, MPFR_RNDU);
+    mpfr_clear(rop);
+    Interval r;
+    r.lo = le;
+    r.hi = re;
+    return r;
+}
+
+__float128 LeftRead(const string& sa) {
+    mpfr_t rop;
+    mpfr_init2(rop, 113);
+    mpfr_set_str(rop, sa.c_str(), 10, MPFR_RNDD);
+    __float128 le = mpfr_get_ld(rop, MPFR_RNDD);
+    mpfr_clear(rop);
+    return le;
+}
+
+// Funkcja do wczytania górnej granicy z zaokrąglaniem w górę
+__float128 RightRead(const string& sa) {
+    mpfr_t rop;
+    mpfr_init2(rop, 113);
+    mpfr_set_str(rop, sa.c_str(), 10, MPFR_RNDU);
+    __float128 re = mpfr_get_ld(rop, MPFR_RNDU);
+    mpfr_clear(rop);
+    return re;
+}
+
+__float128 IntWidth(const Interval &x) {
+    return x.hi - x.lo;
+}
 
 // ====================
 // Dla trybu 1 (float128)
@@ -97,7 +143,7 @@ public:
                 else if (coeff == 1)  value = segments[seg].a1;
                 else if (coeff == 2)  value = segments[seg].a2;
                 else                  value = segments[seg].a3;
-                quadmath_snprintf(buffer, sizeof(buffer), "%.15Qf", value);
+                quadmath_snprintf(buffer, sizeof(buffer), "%.18Qe", value);
                 outputFile << "a[" << coeff << "," << seg << "] = " << buffer << "\n";
             }
         }
@@ -108,9 +154,7 @@ public:
 // Dla trybu 2 (arytmetyka przedziałowa)
 // ====================
 
-struct Interval {
-    __float128 lo, hi;
-};
+
 
 // Konstruktor przedziału ze skalara (obustronnie taki sam)
 Interval I(__float128 v) {
@@ -178,8 +222,8 @@ Interval cube(const Interval &a) {
 // Funkcja pomocnicza do wypisywania przedziału jako string "[lo, hi]"
 string toString(const Interval &a) {
     char bufLo[128], bufHi[128];
-    quadmath_snprintf(bufLo, sizeof(bufLo), "%.15Qf", a.lo);
-    quadmath_snprintf(bufHi, sizeof(bufHi), "%.15Qf", a.hi);
+    quadmath_snprintf(bufLo, sizeof(bufLo), "%.18Qe", a.lo);
+    quadmath_snprintf(bufHi, sizeof(bufHi), "%.18Qe", a.hi);
     string s = "[";
     s += bufLo; s += ", "; s += bufHi; s += "]";
     return s;
@@ -278,21 +322,28 @@ public:
     
     // Wypisanie współczynników globalnych – przedziały wypisywane w formacie "[lo, hi]"
     void printCoefficients(ofstream &outputFile) {
-        const int numCoeff = 4; 
-        int numSegments = segments.size();
-        for (int coeff = 0; coeff < numCoeff; coeff++) {
-            for (int seg = 0; seg < numSegments; seg++) {
-                Interval val;
-                if (coeff == 0)       val = segments[seg].a0;
-                else if (coeff == 1)  val = segments[seg].a1;
-                else if (coeff == 2)  val = segments[seg].a2;
-                else                  val = segments[seg].a3;
-                outputFile << "a[" << coeff << "," << seg << "] = " << toString(val) << "\n";
-            }
+    const int numCoeff = 4; 
+    int numSegments = segments.size();
+    for (int coeff = 0; coeff < numCoeff; coeff++) {
+        for (int seg = 0; seg < numSegments; seg++) {
+            Interval val;
+            if (coeff == 0)       val = segments[seg].a0;
+            else if (coeff == 1)  val = segments[seg].a1;
+            else if (coeff == 2)  val = segments[seg].a2;
+            else                  val = segments[seg].a3;
+            
+            // Wypisz przedział
+            outputFile << "a[" << coeff << "," << seg << "] = " << toString(val) << "\n";
+            
+            // Oblicz i wypisz szerokość w formacie X.Xe+X
+            __float128 width = IntWidth(val);
+            char widthBuffer[128];
+            quadmath_snprintf(widthBuffer, sizeof(widthBuffer), "%.1Qe", width);
+            outputFile << "width = " << widthBuffer << "\n\n";
         }
     }
+}
 };
-
 
 // ====================
 // main
@@ -308,9 +359,9 @@ int main() {
     inputFile >> tryb;
     int n;
     inputFile >> n;
-    
+
     if (tryb == 1) {
-        // Tryb klasyczny – dla każdego n wczytujemy jedną wartość (w formacie tekstowym, konwertowaną przez strtoflt128)
+        // Tryb 1 pozostaje bez zmian
         vector<__float128> x(n), y(n);
         for (int i = 0; i < n; i++) {
             char buffer[128];
@@ -331,74 +382,73 @@ int main() {
         NaturalCubicSpline spline(x, y);
         spline.printCoefficients(outputFile);
         outputFile << "\n";
-        char buffer[128];
+        char buffer[128], xxBuffer[128];
         auto [value, a, b, c, d] = spline.evaluate(xx);
-        quadmath_snprintf(buffer, sizeof(buffer), "%.15Qf", value);
-        char xxBuffer[128];
-        quadmath_snprintf(xxBuffer, sizeof(xxBuffer), "%.15Qf", xx);
+        quadmath_snprintf(buffer, sizeof(buffer), "%.18Qe", value);
+        quadmath_snprintf(xxBuffer, sizeof(xxBuffer), "%.18Qe", xx);
         outputFile << "S(" << xxBuffer << ") = " << buffer << "\n\n";
     } else if (tryb == 3) {
-        // Tryb przedziałowy – dla każdego n wczytujemy dwie wartości: dolną i górną granicę
+        // Tryb przedziałowy z jawnymi granicami
         vector<Interval> x(n), y(n);
         for (int i = 0; i < n; i++) {
             char bufLo[128], bufHi[128];
             inputFile >> bufLo >> bufHi;
-            x[i].lo = strtoflt128(bufLo, NULL);
-            x[i].hi = strtoflt128(bufHi, NULL);
+            x[i].lo = LeftRead(bufLo);
+            x[i].hi = RightRead(bufHi);
         }
         for (int i = 0; i < n; i++) {
             char bufLo[128], bufHi[128];
             inputFile >> bufLo >> bufHi;
-            y[i].lo = strtoflt128(bufLo, NULL);
-            y[i].hi = strtoflt128(bufHi, NULL);
+            y[i].lo = LeftRead(bufLo);
+            y[i].hi = RightRead(bufHi);
         }
         Interval xx;
         {
             char bufLo[128], bufHi[128];
             inputFile >> bufLo >> bufHi;
-            xx.lo = strtoflt128(bufLo, NULL);
-            xx.hi = strtoflt128(bufHi, NULL);
+            xx.lo = LeftRead(bufLo);
+            xx.hi = RightRead(bufHi);
         }
         NaturalCubicSplineInterval spline(x, y);
         spline.printCoefficients(outputFile);
         outputFile << "\n";
         auto [value, a, b, c, d] = spline.evaluate(xx);
-        outputFile << "S(" << toString(xx) << ") = " << toString(value) << "\n\n";
-    }
-    else if (tryb == 2) {
-        // Tryb przedziałowy – dane rzeczywiste konwersja na przedział do najbliższej liczby maszynowej 
+        outputFile << "S(" << toString(xx) << ") = " << toString(value) << "\n";
+        __float128 width = IntWidth(value);
+        char widthBuffer[128];
+        quadmath_snprintf(widthBuffer, sizeof(widthBuffer), "%.1Qe", width);
+        outputFile << "width = " << widthBuffer << "\n\n";
+    } else if (tryb == 2) {
+        // Tryb przedziałowy – konwersja pojedynczej wartości na przedział
         vector<Interval> x(n), y(n);
         for (int i = 0; i < n; i++) {
             char buf[128];
             inputFile >> buf;
-            x[i].lo = nextafterq(strtoflt128(buf, NULL),-FLT128_MAX);
-            x[i].hi = nextafterq(strtoflt128(buf, NULL),FLT128_MAX);
+            x[i] = IntRead(buf);
         }
         for (int i = 0; i < n; i++) {
             char buf[128];
             inputFile >> buf;
-            y[i].lo = nextafterq(strtoflt128(buf, NULL),-FLT128_MAX);
-            y[i].hi = nextafterq(strtoflt128(buf, NULL),FLT128_MAX);
+            y[i] = IntRead(buf);
         }
         Interval xx;
         {
             char buf[128];
             inputFile >> buf;
-            xx.lo = strtoflt128(buf, NULL);
-            xx.hi = strtoflt128(buf, NULL);
+            xx = IntRead(buf);
         }
-        xx.hi  = nextafterq(xx.lo, FLT128_MAX);   // górna granica przedziału
-        xx.lo = nextafterq(xx.lo, -FLT128_MAX);   // dolna granica przedziału
-        
         NaturalCubicSplineInterval spline(x, y);
         spline.printCoefficients(outputFile);
         outputFile << "\n";
         auto [value, a, b, c, d] = spline.evaluate(xx);
-        outputFile << "S(" << toString(xx) << ") = " << toString(value) << "\n\n";
+        outputFile << "S(" << toString(xx) << ") = " << toString(value) << "\n";
+        __float128 width = IntWidth(value);
+        char widthBuffer[128];
+        quadmath_snprintf(widthBuffer, sizeof(widthBuffer), "%.1Qe", width);
+        outputFile << "width = " << widthBuffer << "\n\n";
     }
-    
+
     inputFile.close();
     outputFile.close();
     return 0;
 }
-// g++ -o main main.cpp -lquadmath -lm

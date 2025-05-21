@@ -18,7 +18,7 @@ def calculate():
     xx_str = xx_entry.get()
 
     try:
-        nodes = int(nodes_str)
+        nodes = int(nodes_str) + 1
         if nodes <= 0:
             raise ValueError
     except ValueError:
@@ -76,7 +76,7 @@ def calculate():
 
     # Uruchom obliczenia
     try:
-        subprocess.run(["./main"], check=True)
+        subprocess.run(["./main1"], check=True)
     except Exception as e:
         messagebox.showerror("Błąd", f"Błąd obliczeń: {str(e)}")
         return
