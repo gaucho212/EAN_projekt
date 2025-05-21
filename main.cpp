@@ -1,16 +1,22 @@
+#define MPFR_USE_NO_MACRO
+#define MPFR_USE_INTMAX_T
+
+#include <cstdint>
+#include <cinttypes>      
 #include <iostream>
 #include <vector>
 #include <quadmath.h>
+#include <stdint.h>
 #include <tuple>
 #include <fstream>
 #include <sstream>
 #include <cstdlib>
 #include <limits>
 #include <cmath>
-#include <cfenv> // dla kontroli zaokrąglania
-#include <boost/numeric/interval.hpp> 
+#include <cfenv>
 #include <mpfr.h>
-#include <fenv.h> // For fesetround
+#include "interval.h"
+#include <fenv.h>
 using namespace std;
 
 struct Interval {
@@ -53,6 +59,22 @@ __float128 RightRead(const string& sa) {
 
 __float128 IntWidth(const Interval &x) {
     return x.hi - x.lo;
+}
+void IEndsToString(const Interval& a, std::ostream& os = std::cout) {
+    mpfr_t lo, hi;
+    mpfr_init2(lo, 113);
+    mpfr_init2(hi, 113);
+    mpfr_set_ld(lo, a.lo, MPFR_RNDN);
+    mpfr_set_ld(hi, a.hi, MPFR_RNDN);
+
+    char lo_str[64], hi_str[64];
+    mpfr_sprintf(lo_str, "%.18Re", lo); // notacja naukowa
+    mpfr_sprintf(hi_str, "%.18Re", hi);
+
+    os << "[" << lo_str << ", " << hi_str << "]";
+
+    mpfr_clear(lo);
+    mpfr_clear(hi);
 }
 
 // ====================
@@ -333,7 +355,9 @@ public:
             else                  val = segments[seg].a3;
             
             // Wypisz przedział
-            outputFile << "a[" << coeff << "," << seg << "] = " << toString(val) << "\n";
+            outputFile << "a[" << coeff << "," << seg << "] = ";
+            IEndsToString(val, outputFile);
+            outputFile << "\n";
             
             // Oblicz i wypisz szerokość w formacie X.Xe+X
             __float128 width = IntWidth(val);
@@ -413,7 +437,8 @@ int main() {
         spline.printCoefficients(outputFile);
         outputFile << "\n";
         auto [value, a, b, c, d] = spline.evaluate(xx);
-        outputFile << "S(" << toString(xx) << ") = " << toString(value) << "\n";
+        outputFile << "S("; IEndsToString(xx, outputFile); outputFile << ") = ";
+        IEndsToString(value, outputFile); outputFile << "\n";
         __float128 width = IntWidth(value);
         char widthBuffer[128];
         quadmath_snprintf(widthBuffer, sizeof(widthBuffer), "%.1Qe", width);
@@ -441,7 +466,8 @@ int main() {
         spline.printCoefficients(outputFile);
         outputFile << "\n";
         auto [value, a, b, c, d] = spline.evaluate(xx);
-        outputFile << "S(" << toString(xx) << ") = " << toString(value) << "\n";
+        outputFile << "S("; IEndsToString(xx, outputFile); outputFile << ") = ";
+        IEndsToString(value, outputFile); outputFile << "\n";
         __float128 width = IntWidth(value);
         char widthBuffer[128];
         quadmath_snprintf(widthBuffer, sizeof(widthBuffer), "%.1Qe", width);
