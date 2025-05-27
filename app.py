@@ -56,7 +56,6 @@ def calculate():
             if len(xx_values) != 1:
                 raise ValueError
             xx = [float(xx_values[0])]
-
         elif mode == 3:
             if len(xx_values) != 2:
                 raise ValueError
@@ -77,18 +76,18 @@ def calculate():
     # Uruchom obliczenia
     try:
         subprocess.run(["./main"], check=True)
-    except Exception as e:
-        messagebox.showerror("Błąd", f"Błąd obliczeń: {str(e)}")
-        return
-
-    # Wyświetl wyniki
-    try:
+        # W przypadku sukcesu, wyświetl wyniki
         with open("output.txt", "r") as f:
             result = f.read()
         result_text.delete(1.0, tk.END)
         result_text.insert(tk.END, "Wyniki:\n" + result)
+    except subprocess.CalledProcessError:
+        # W przypadku błędu, wyświetl komunikat o błędzie
+        with open("output.txt", "r") as f:
+            error_message = f.read()
+        messagebox.showerror("Błąd", error_message)
     except Exception as e:
-        messagebox.showerror("Błąd", f"Błąd odczytu wyników: {str(e)}")
+        messagebox.showerror("Błąd", f"Błąd wykonania: {str(e)}")
 
 
 def show_info():

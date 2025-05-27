@@ -15,8 +15,8 @@
 #include <cmath>
 #include <cfenv>
 #include <mpfr.h>
-#include "interval.h"
 #include <fenv.h>
+#include "interval.h"
 using namespace std;
 
 struct Interval {
@@ -173,10 +173,8 @@ public:
 };
 
 // ====================
-// Dla trybu 2 (arytmetyka przedziałowa)
+// Dla trybu 2 i 3 (arytmetyka przedziałowa)
 // ====================
-
-
 
 // Konstruktor przedziału ze skalara (obustronnie taki sam)
 Interval I(__float128 v) {
@@ -216,7 +214,10 @@ Interval mul(const Interval &a, const Interval &b) {
 }
 
 Interval divInt(const Interval &a, const Interval &b) {
-    // Zakładamy, że przedział b nie zawiera 0.
+    // Sprawdzamy, czy przedział b zawiera zero
+    if (b.lo <= 0 && b.hi >= 0) {
+        throw std::invalid_argument("Dzielenie przez przedział zawierający zero");
+    }
     __float128 p1 = a.lo / b.lo;
     __float128 p2 = a.lo / b.hi;
     __float128 p3 = a.hi / b.lo;
@@ -270,6 +271,10 @@ public:
         h.resize(n - 1);
         for (int i = 0; i < n - 1; i++) {
             h[i] = subInt(x[i+1], x[i]);
+            // Sprawdzamy, czy h[i] zawiera zero
+            if (h[i].lo <= 0 && h[i].hi >= 0) {
+                throw std::invalid_argument("Przedział h[i] zawiera zero, co uniemożliwia konstrukcję splajnu");
+            }
         }
         // Przygotowanie układu równań – wszystkie zmienne jako przedziały
         vector<Interval> alpha(n, I(0.0Q)), l(n, I(0.0Q)), mu(n, I(0.0Q)), z(n, I(0.0Q));
@@ -344,29 +349,29 @@ public:
     
     // Wypisanie współczynników globalnych – przedziały wypisywane w formacie "[lo, hi]"
     void printCoefficients(ofstream &outputFile) {
-    const int numCoeff = 4; 
-    int numSegments = segments.size();
-    for (int coeff = 0; coeff < numCoeff; coeff++) {
-        for (int seg = 0; seg < numSegments; seg++) {
-            Interval val;
-            if (coeff == 0)       val = segments[seg].a0;
-            else if (coeff == 1)  val = segments[seg].a1;
-            else if (coeff == 2)  val = segments[seg].a2;
-            else                  val = segments[seg].a3;
-            
-            // Wypisz przedział
-            outputFile << "a[" << coeff << "," << seg << "] = ";
-            IEndsToString(val, outputFile);
-            outputFile << "\n";
-            
-            // Oblicz i wypisz szerokość w formacie X.Xe+X
-            __float128 width = IntWidth(val);
-            char widthBuffer[128];
-            quadmath_snprintf(widthBuffer, sizeof(widthBuffer), "%.1Qe", width);
-            outputFile << "width = " << widthBuffer << "\n\n";
+        const int numCoeff = 4; 
+        int numSegments = segments.size();
+        for (int coeff = 0; coeff < numCoeff; coeff++) {
+            for (int seg = 0; seg < numSegments; seg++) {
+                Interval val;
+                if (coeff == 0)       val = segments[seg].a0;
+                else if (coeff == 1)  val = segments[seg].a1;
+                else if (coeff == 2)  val = segments[seg].a2;
+                else                  val = segments[seg].a3;
+                
+                // Wypisz przedział
+                outputFile << "a[" << coeff << "," << seg << "] = ";
+                IEndsToString(val, outputFile);
+                outputFile << "\n";
+                
+                // Oblicz i wypisz szerokość w formacie X.Xe+X
+                __float128 width = IntWidth(val);
+                char widthBuffer[128];
+                quadmath_snprintf(widthBuffer, sizeof(widthBuffer), "%.1Qe", width);
+                outputFile << "width = " << widthBuffer << "\n\n";
+            }
         }
     }
-}
 };
 
 // ====================
@@ -376,102 +381,113 @@ int main() {
     ifstream inputFile("input.txt");
     ofstream outputFile("output.txt");
     if (!inputFile.is_open() || !outputFile.is_open()) {
-        cerr << "Blad otwarcia pliku!" << endl;
+        cerr << "Błąd otwarcia pliku!" << endl;
         return 1;
     }
-    int tryb;
-    inputFile >> tryb;
-    int n;
-    inputFile >> n;
+    
+    try {
+        int tryb;
+        inputFile >> tryb;
+        int n;
+        inputFile >> n;
 
-    if (tryb == 1) {
-        // Tryb 1 pozostaje bez zmian
-        vector<__float128> x(n), y(n);
-        for (int i = 0; i < n; i++) {
-            char buffer[128];
-            inputFile >> buffer;
-            x[i] = strtoflt128(buffer, NULL);
+        if (tryb == 1) {
+            // Tryb 1 pozostaje bez zmian
+            vector<__float128> x(n), y(n);
+            for (int i = 0; i < n; i++) {
+                char buffer[128];
+                inputFile >> buffer;
+                x[i] = strtoflt128(buffer, NULL);
+            }
+            for (int i = 0; i < n; i++) {
+                char buffer[128];
+                inputFile >> buffer;
+                y[i] = strtoflt128(buffer, NULL);
+            }
+            __float128 xx;
+            {
+                char buffer[128];
+                inputFile >> buffer;
+                xx = strtoflt128(buffer, NULL);
+            }
+            NaturalCubicSpline spline(x, y);
+            spline.printCoefficients(outputFile);
+            outputFile << "\n";
+            char buffer[128], xxBuffer[128];
+            auto [value, a, b, c, d] = spline.evaluate(xx);
+            quadmath_snprintf(buffer, sizeof(buffer), "%.18Qe", value);
+            quadmath_snprintf(xxBuffer, sizeof(xxBuffer), "%.18Qe", xx);
+            outputFile << "S(" << xxBuffer << ") = " << buffer << "\n\n";
+        } else if (tryb == 3) {
+            // Tryb przedziałowy z jawnymi granicami
+            vector<Interval> x(n), y(n);
+            for (int i = 0; i < n; i++) {
+                char bufLo[128], bufHi[128];
+                inputFile >> bufLo >> bufHi;
+                x[i].lo = LeftRead(bufLo);
+                x[i].hi = RightRead(bufHi);
+            }
+            for (int i = 0; i < n; i++) {
+                char bufLo[128], bufHi[128];
+                inputFile >> bufLo >> bufHi;
+                y[i].lo = LeftRead(bufLo);
+                y[i].hi = RightRead(bufHi);
+            }
+            Interval xx;
+            {
+                char bufLo[128], bufHi[128];
+                inputFile >> bufLo >> bufHi;
+                xx.lo = LeftRead(bufLo);
+                xx.hi = RightRead(bufHi);
+            }
+            NaturalCubicSplineInterval spline(x, y);
+            spline.printCoefficients(outputFile);
+            outputFile << "\n";
+            auto [value, a, b, c, d] = spline.evaluate(xx);
+            outputFile << "S("; IEndsToString(xx, outputFile); outputFile << ") = ";
+            IEndsToString(value, outputFile); outputFile << "\n";
+            __float128 width = IntWidth(value);
+            char widthBuffer[128];
+            quadmath_snprintf(widthBuffer, sizeof(widthBuffer), "%.1Qe", width);
+            outputFile << "width = " << widthBuffer << "\n\n";
+        } else if (tryb == 2) {
+            // Tryb przedziałowy – konwersja pojedynczej wartości na przedział
+            vector<Interval> x(n), y(n);
+            for (int i = 0; i < n; i++) {
+                char buf[128];
+                inputFile >> buf;
+                x[i] = IntRead(buf);
+            }
+            for (int i = 0; i < n; i++) {
+                char buf[128];
+                inputFile >> buf;
+                y[i] = IntRead(buf);
+            }
+            Interval xx;
+            {
+                char buf[128];
+                inputFile >> buf;
+                xx = IntRead(buf);
+            }
+            NaturalCubicSplineInterval spline(x, y);
+            spline.printCoefficients(outputFile);
+            outputFile << "\n";
+            auto [value, a, b, c, d] = spline.evaluate(xx);
+            outputFile << "S("; IEndsToString(xx, outputFile); outputFile << ") = ";
+            IEndsToString(value, outputFile); outputFile << "\n";
+            __float128 width = IntWidth(value);
+            char widthBuffer[128];
+            quadmath_snprintf(widthBuffer, sizeof(widthBuffer), "%.1Qe", width);
+            outputFile << "width = " << widthBuffer << "\n\n";
         }
-        for (int i = 0; i < n; i++) {
-            char buffer[128];
-            inputFile >> buffer;
-            y[i] = strtoflt128(buffer, NULL);
-        }
-        __float128 xx;
-        {
-            char buffer[128];
-            inputFile >> buffer;
-            xx = strtoflt128(buffer, NULL);
-        }
-        NaturalCubicSpline spline(x, y);
-        spline.printCoefficients(outputFile);
-        outputFile << "\n";
-        char buffer[128], xxBuffer[128];
-        auto [value, a, b, c, d] = spline.evaluate(xx);
-        quadmath_snprintf(buffer, sizeof(buffer), "%.18Qe", value);
-        quadmath_snprintf(xxBuffer, sizeof(xxBuffer), "%.18Qe", xx);
-        outputFile << "S(" << xxBuffer << ") = " << buffer << "\n\n";
-    } else if (tryb == 3) {
-        // Tryb przedziałowy z jawnymi granicami
-        vector<Interval> x(n), y(n);
-        for (int i = 0; i < n; i++) {
-            char bufLo[128], bufHi[128];
-            inputFile >> bufLo >> bufHi;
-            x[i].lo = LeftRead(bufLo);
-            x[i].hi = RightRead(bufHi);
-        }
-        for (int i = 0; i < n; i++) {
-            char bufLo[128], bufHi[128];
-            inputFile >> bufLo >> bufHi;
-            y[i].lo = LeftRead(bufLo);
-            y[i].hi = RightRead(bufHi);
-        }
-        Interval xx;
-        {
-            char bufLo[128], bufHi[128];
-            inputFile >> bufLo >> bufHi;
-            xx.lo = LeftRead(bufLo);
-            xx.hi = RightRead(bufHi);
-        }
-        NaturalCubicSplineInterval spline(x, y);
-        spline.printCoefficients(outputFile);
-        outputFile << "\n";
-        auto [value, a, b, c, d] = spline.evaluate(xx);
-        outputFile << "S("; IEndsToString(xx, outputFile); outputFile << ") = ";
-        IEndsToString(value, outputFile); outputFile << "\n";
-        __float128 width = IntWidth(value);
-        char widthBuffer[128];
-        quadmath_snprintf(widthBuffer, sizeof(widthBuffer), "%.1Qe", width);
-        outputFile << "width = " << widthBuffer << "\n\n";
-    } else if (tryb == 2) {
-        // Tryb przedziałowy – konwersja pojedynczej wartości na przedział
-        vector<Interval> x(n), y(n);
-        for (int i = 0; i < n; i++) {
-            char buf[128];
-            inputFile >> buf;
-            x[i] = IntRead(buf);
-        }
-        for (int i = 0; i < n; i++) {
-            char buf[128];
-            inputFile >> buf;
-            y[i] = IntRead(buf);
-        }
-        Interval xx;
-        {
-            char buf[128];
-            inputFile >> buf;
-            xx = IntRead(buf);
-        }
-        NaturalCubicSplineInterval spline(x, y);
-        spline.printCoefficients(outputFile);
-        outputFile << "\n";
-        auto [value, a, b, c, d] = spline.evaluate(xx);
-        outputFile << "S("; IEndsToString(xx, outputFile); outputFile << ") = ";
-        IEndsToString(value, outputFile); outputFile << "\n";
-        __float128 width = IntWidth(value);
-        char widthBuffer[128];
-        quadmath_snprintf(widthBuffer, sizeof(widthBuffer), "%.1Qe", width);
-        outputFile << "width = " << widthBuffer << "\n\n";
+        // Zapis statusu w przypadku sukcesu
+        outputFile << "Status: 0\n";
+    } catch (const std::exception& e) {
+        // Zapis statusu i komunikatu o błędzie
+        outputFile << "Status: 1\nBłąd: " << e.what() << endl;
+        inputFile.close();
+        outputFile.close();
+        return 1;
     }
 
     inputFile.close();
