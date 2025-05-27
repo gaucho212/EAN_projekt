@@ -76,19 +76,24 @@ def calculate():
     # Uruchom obliczenia
     try:
         subprocess.run(["./main"], check=True)
-        # W przypadku sukcesu, wyświetl wyniki
+        # Odczytaj wyniki z pliku output.txt
         with open("output.txt", "r") as f:
             result = f.read()
-        result_text.delete(1.0, tk.END)
-        result_text.insert(tk.END, "Wyniki:\n" + result)
+        # Sprawdź status
+        if "Status: 1" in result:
+            result_text.delete(1.0, tk.END)
+            result_text.insert(tk.END, "Błąd: Nie udało się wykonać obliczeń.\n" + result)
+        else:
+            result_text.delete(1.0, tk.END)
+            result_text.insert(tk.END, "Wyniki:\n" + result)
     except subprocess.CalledProcessError:
-        # W przypadku błędu, wyświetl komunikat o błędzie
+        # W przypadku błędu subprocess, również odczytaj output.txt
         with open("output.txt", "r") as f:
             error_message = f.read()
-        messagebox.showerror("Błąd", error_message)
+        result_text.delete(1.0, tk.END)
+        result_text.insert(tk.END, "Błąd:\n" + error_message)
     except Exception as e:
         messagebox.showerror("Błąd", f"Błąd wykonania: {str(e)}")
-
 
 def show_info():
     info = """
